@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FullPageShot</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>FullPageShot</h1>
+    <p class="subtitle">Capture full-page screenshots</p>
+
+    <div class="button-group">
+      <button id="captureImage" class="capture-btn image-btn">
+        <span class="icon">📷</span>
+        <span class="text">Save as Image</span>
+      </button>
+
+      <button id="capturePDF" class="capture-btn pdf-btn">
+        <span class="icon">📄</span>
+        <span class="text">Save as PDF</span>
+      </button>
+    </div>
+
+    <div class="options">
+      <label class="toggle-option">
+        <input type="checkbox" id="hideStickyElements" checked>
+        <span class="toggle-slider"></span>
+        <span class="toggle-label">Hide sticky menus</span>
+      </label>
+      <p class="option-description">Remove fixed headers/footers from middle captures</p>
+    </div>
+
+    <div id="status" class="status hidden"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

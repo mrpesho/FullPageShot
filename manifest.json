@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "FullPageShot",
+  "version": "1.0.0",
+  "description": "Capture full-page screenshots as images or PDFs with automatic scrolling",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "downloads",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["jspdf.min.js", "jspdf-wrapper.js", "content.js"]
+    }
+  ]
+}
