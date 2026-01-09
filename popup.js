@@ -28,19 +28,19 @@ async function ensureContentScript(tabId) {
     // Try to ping the content script
     await chrome.tabs.sendMessage(tabId, { action: 'ping' });
   } catch (error) {
-    // Content script not loaded, inject it
+    // Content script not loaded, inject jsPDF and content script
     await chrome.scripting.executeScript({
       target: { tabId: tabId },
-      files: ['content.js']
+      files: ['jspdf.min.js', 'jspdf-wrapper.js', 'content.js']
     });
   }
 }
 
-// Capture current visible viewport
-async function captureCurrentView(format) {
+// Capture full page
+async function captureFullPage(format) {
   try {
     setButtonsDisabled(true);
-    showStatus(`Capturing as ${format}...`, 'info');
+    showStatus(`Capturing full page as ${format}...`, 'info');
 
     // Get the active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -51,21 +51,17 @@ async function captureCurrentView(format) {
     // Get the sticky elements preference
     const hideStickyElements = hideStickyCheckbox.checked;
 
-    // Send message to content script to capture the page
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      action: 'capture',
+    // Send message to content script to capture full page
+    await chrome.tabs.sendMessage(tab.id, {
+      action: 'captureFullPage',
       format: format,
       hideStickyElements: hideStickyElements
     });
 
-    if (response.success) {
-      showStatus(`Page captured successfully!`, 'success');
-      setTimeout(() => {
-        window.close();
-      }, 1500);
-    } else {
-      throw new Error(response.error || 'Capture failed');
-    }
+    showStatus(`Capturing in progress...`, 'success');
+    setTimeout(() => {
+      window.close();
+    }, 1500);
   } catch (error) {
     console.error('Capture error:', error);
     showStatus(`Error: ${error.message}`, 'error');
@@ -75,11 +71,11 @@ async function captureCurrentView(format) {
 
 // Event listeners
 captureImageBtn.addEventListener('click', () => {
-  captureCurrentView('image');
+  captureFullPage('image');
 });
 
 capturePDFBtn.addEventListener('click', () => {
-  captureCurrentView('pdf');
+  captureFullPage('pdf');
 });
 
 // Save sticky elements preference when changed

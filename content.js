@@ -73,13 +73,15 @@ function categorizeStickyElements(stickyElements) {
 
 function hideElements(elements) {
   for (const item of elements) {
-    item.element.style.display = 'none';
+    // Use setProperty with 'important' to override CSS !important rules
+    item.element.style.setProperty('display', 'none', 'important');
   }
 }
 
 function showElements(elements) {
   for (const item of elements) {
-    item.element.style.display = item.originalDisplay;
+    // Remove the inline display property to restore original CSS styling
+    item.element.style.removeProperty('display');
   }
 }
 
@@ -98,7 +100,7 @@ async function captureCurrentView(format, hideStickyElements = true) {
 
 // Capture full page by scrolling
 async function captureFullPage(format, hideStickyElements = true) {
-  showCaptureProgress('Preparing to capture full page...');
+  // showCaptureProgress('Preparing to capture full page...');
 
   try {
     if (format === 'image') {
@@ -106,11 +108,11 @@ async function captureFullPage(format, hideStickyElements = true) {
     } else if (format === 'pdf') {
       await captureAsPDF(true, hideStickyElements);
     }
-    hideCaptureProgress();
+    // hideCaptureProgress();
   } catch (error) {
     console.error('Full page capture error:', error);
-    showCaptureProgress('Error: ' + error.message, true);
-    setTimeout(hideCaptureProgress, 3000);
+    // showCaptureProgress('Error: ' + error.message, true);
+    // setTimeout(hideCaptureProgress, 3000);
   }
 }
 
@@ -118,7 +120,7 @@ async function captureFullPage(format, hideStickyElements = true) {
 async function captureAsImage(fullPage = false, hideStickyElements = true) {
   try {
     if (fullPage) {
-      showCaptureProgress('Capturing full page as image...');
+      // showCaptureProgress('Capturing full page as image...');
 
       // Save original scroll position
       const originalScrollY = window.scrollY;
@@ -160,18 +162,26 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
       let captureCount = 0;
       const totalCaptures = numVertical * numHorizontal;
 
-      // Detect sticky elements before starting (only if hiding is enabled)
+      // Detect sticky elements (only if hiding is enabled)
       let stickyElements = [];
       let headers = [];
       let footers = [];
       let others = [];
 
       if (hideStickyElements) {
+        // Scroll down first to activate sticky elements that only become sticky on scroll
+        window.scrollTo(0, viewportHeight);
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         stickyElements = getStickyElements();
         const categorized = categorizeStickyElements(stickyElements);
         headers = categorized.headers;
         footers = categorized.footers;
         others = categorized.others;
+
+        // Scroll back to top before starting capture
+        window.scrollTo(0, 0);
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       // Scroll and capture
@@ -229,7 +239,7 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
           }
 
           captureCount++;
-          showCaptureProgress(`Capturing... ${captureCount}/${totalCaptures}`);
+          // showCaptureProgress(`Capturing... ${captureCount}/${totalCaptures}`);
 
           // Capture current viewport
           let dataUrl;
@@ -304,7 +314,7 @@ async function captureViewport() {
 // Capture as PDF - capture as image then convert to PDF
 async function captureAsPDF(fullPage = false, hideStickyElements = true) {
   try {
-    showCaptureProgress('Capturing page for PDF...');
+    // showCaptureProgress('Capturing page for PDF...');
 
     if (fullPage) {
       // Save original scroll position
@@ -347,18 +357,26 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
       let captureCount = 0;
       const totalCaptures = numVertical * numHorizontal;
 
-      // Detect sticky elements before starting (only if hiding is enabled)
+      // Detect sticky elements (only if hiding is enabled)
       let stickyElements = [];
       let headers = [];
       let footers = [];
       let others = [];
 
       if (hideStickyElements) {
+        // Scroll down first to activate sticky elements that only become sticky on scroll
+        window.scrollTo(0, viewportHeight);
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         stickyElements = getStickyElements();
         const categorized = categorizeStickyElements(stickyElements);
         headers = categorized.headers;
         footers = categorized.footers;
         others = categorized.others;
+
+        // Scroll back to top before starting capture
+        window.scrollTo(0, 0);
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       // Scroll and capture
@@ -416,7 +434,7 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
           }
 
           captureCount++;
-          showCaptureProgress(`Capturing for PDF... ${captureCount}/${totalCaptures}`);
+          // showCaptureProgress(`Capturing for PDF... ${captureCount}/${totalCaptures}`);
 
           // Capture current viewport
           let dataUrl;
@@ -454,7 +472,7 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
         showElements(footers);
       }
 
-      showCaptureProgress('Converting to PDF...');
+      // showCaptureProgress('Converting to PDF...');
 
       // Convert canvas to PDF using jsPDF
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -479,13 +497,13 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
       const filename = generateFilename('pdf');
       pdf.save(filename);
 
-      hideCaptureProgress();
+      // hideCaptureProgress();
       return { success: true };
     } else {
       // Capture current viewport and convert to PDF
       const dataUrl = await captureViewport();
 
-      showCaptureProgress('Converting to PDF...');
+      // showCaptureProgress('Converting to PDF...');
 
       if (!window.jsPDF) {
         throw new Error('jsPDF library not loaded');
@@ -501,12 +519,12 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
       const filename = generateFilename('pdf');
       pdf.save(filename);
 
-      hideCaptureProgress();
+      // hideCaptureProgress();
       return { success: true };
     }
   } catch (error) {
     console.error('PDF capture error:', error);
-    hideCaptureProgress();
+    // hideCaptureProgress();
     return { success: false, error: error.message };
   }
 }

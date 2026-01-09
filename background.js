@@ -4,10 +4,10 @@ async function ensureContentScript(tabId) {
     // Try to ping the content script
     await chrome.tabs.sendMessage(tabId, { action: 'ping' });
   } catch (error) {
-    // Content script not loaded, inject it
+    // Content script not loaded, inject jsPDF and content script
     await chrome.scripting.executeScript({
       target: { tabId: tabId },
-      files: ['content.js']
+      files: ['jspdf.min.js', 'jspdf-wrapper.js', 'content.js']
     });
   }
 }
