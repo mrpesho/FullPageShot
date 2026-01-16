@@ -77,6 +77,21 @@ drawHeight = remainingHeight;               // Height to draw
 drawY = pageHeight - remainingHeight;       // Position on canvas
 ```
 
+### High-DPI (Retina) Display Support
+`captureVisibleTab()` captures at **device pixel resolution**, not CSS pixels. On a Retina display with DPR=2, a 1440px CSS viewport produces a 2880px image.
+
+**Solution**: Scale canvas and drawing coordinates by `devicePixelRatio`:
+```javascript
+const dpr = window.devicePixelRatio || 1;
+canvas.width = pageWidth * dpr;
+canvas.height = pageHeight * dpr;
+// When drawing captured images:
+ctx.drawImage(img,
+  sourceX * dpr, sourceY * dpr, drawWidth * dpr, drawHeight * dpr,
+  drawX * dpr, drawY * dpr, drawWidth * dpr, drawHeight * dpr
+);
+```
+
 ### Dynamic Script Injection
 When injecting content script dynamically, must include all files:
 ```javascript
@@ -97,6 +112,7 @@ await chrome.scripting.executeScript({
 | Rate limit exceeded | Capturing too fast | Ensure 700ms+ delay between captures |
 | White/blank images | Not using screenshot API | Use `captureVisibleTab` via background script |
 | Duplicate content at edges | Not handling partial viewports | Use source rectangle extraction for last row/col |
+| Right side clipped on Retina/HiDPI | Not accounting for devicePixelRatio | Scale canvas and drawImage coords by `window.devicePixelRatio` |
 
 ## Storage Keys
 `chrome.storage.local`:
@@ -158,6 +174,7 @@ try {
 - [ ] Scroll position restored after capture
 - [ ] Sticky toggle works (headers/footers hidden correctly)
 - [ ] Toggle state persists across sessions
+- [ ] Test on both standard and high-DPI (Retina) displays
 
 ## Development Commands
 ```bash
