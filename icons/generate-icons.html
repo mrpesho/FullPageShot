@@ -17,6 +17,7 @@
       display: flex;
       gap: 20px;
       margin: 20px 0;
+      align-items: flex-end;
     }
     button {
       background: #667eea;
@@ -58,7 +59,7 @@
       ctx.clearRect(0, 0, size, size);
 
       // Scale factor
-      const scale = size / 128;
+      const s = size / 128;
 
       // Background circle with gradient
       const gradient = ctx.createLinearGradient(0, 0, size, size);
@@ -67,44 +68,88 @@
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2.13, 0, 2 * Math.PI);
+      ctx.arc(64 * s, 64 * s, 60 * s, 0, 2 * Math.PI);
       ctx.fill();
 
-      // Camera body
+      // Page/document
       ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
       ctx.beginPath();
-      ctx.roundRect(32 * scale, 48 * scale, 64 * scale, 44 * scale, 6 * scale);
+      ctx.roundRect(38 * s, 24 * s, 52 * s, 80 * s, 4 * s);
       ctx.fill();
 
-      // Camera lens outer
-      ctx.fillStyle = '#667eea';
+      // Page content lines
+      const lines = [
+        { y: 36, w: 28, opacity: 0.4 },
+        { y: 46, w: 36, opacity: 0.3 },
+        { y: 56, w: 32, opacity: 0.3 },
+        { y: 66, w: 36, opacity: 0.3 },
+        { y: 76, w: 24, opacity: 0.3 },
+        { y: 86, w: 30, opacity: 0.4 }
+      ];
+
+      lines.forEach(line => {
+        ctx.fillStyle = `rgba(102, 126, 234, ${line.opacity})`;
+        ctx.beginPath();
+        ctx.roundRect(46 * s, line.y * s, line.w * s, 4 * s, 2 * s);
+        ctx.fill();
+      });
+
+      // Capture corners
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 4 * s;
+      ctx.lineCap = 'round';
+
+      // Top left
       ctx.beginPath();
-      ctx.arc(64 * scale, 70 * scale, 16 * scale, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.moveTo(28 * s, 38 * s);
+      ctx.lineTo(28 * s, 28 * s);
+      ctx.lineTo(38 * s, 28 * s);
+      ctx.stroke();
 
-      // Camera lens middle
-      ctx.fillStyle = '#764ba2';
+      // Top right
       ctx.beginPath();
-      ctx.arc(64 * scale, 70 * scale, 12 * scale, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.moveTo(90 * s, 28 * s);
+      ctx.lineTo(100 * s, 28 * s);
+      ctx.lineTo(100 * s, 38 * s);
+      ctx.stroke();
 
-      // Camera lens inner
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      // Bottom left
       ctx.beginPath();
-      ctx.arc(64 * scale, 70 * scale, 6 * scale, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.moveTo(28 * s, 90 * s);
+      ctx.lineTo(28 * s, 100 * s);
+      ctx.lineTo(38 * s, 100 * s);
+      ctx.stroke();
 
-      // Flash
+      // Bottom right
+      ctx.beginPath();
+      ctx.moveTo(90 * s, 100 * s);
+      ctx.lineTo(100 * s, 100 * s);
+      ctx.lineTo(100 * s, 90 * s);
+      ctx.stroke();
+
+      // Scroll indicator circle
       ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
       ctx.beginPath();
-      ctx.roundRect(80 * scale, 52 * scale, 8 * scale, 8 * scale, 2 * scale);
+      ctx.arc(96 * s, 64 * s, 12 * s, 0, 2 * Math.PI);
       ctx.fill();
 
-      // Viewfinder
-      ctx.fillStyle = 'rgba(102, 126, 234, 0.7)';
+      // Scroll arrow
+      ctx.strokeStyle = '#764ba2';
+      ctx.lineWidth = 3 * s;
+      ctx.lineJoin = 'round';
+
+      // Arrow line
       ctx.beginPath();
-      ctx.roundRect(40 * scale, 52 * scale, 14 * scale, 8 * scale, 2 * scale);
-      ctx.fill();
+      ctx.moveTo(96 * s, 58 * s);
+      ctx.lineTo(96 * s, 70 * s);
+      ctx.stroke();
+
+      // Arrow head
+      ctx.beginPath();
+      ctx.moveTo(90 * s, 65 * s);
+      ctx.lineTo(96 * s, 71 * s);
+      ctx.lineTo(102 * s, 65 * s);
+      ctx.stroke();
     }
 
     function generateIcons() {
@@ -127,7 +172,7 @@
         });
       });
 
-      alert('Icons generated! Check your downloads folder.');
+      alert('Icons generated! Move the downloaded files to the icons folder.');
     }
 
     // Draw icons on page load
