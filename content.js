@@ -126,7 +126,10 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
       const originalScrollY = window.scrollY;
       const originalScrollX = window.scrollX;
 
-      // Get page dimensions
+      // Get device pixel ratio for high-DPI displays
+      const dpr = window.devicePixelRatio || 1;
+
+      // Get page dimensions (in CSS pixels)
       const pageHeight = Math.max(
         document.body.scrollHeight,
         document.body.offsetHeight,
@@ -145,10 +148,10 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
 
-      // Create canvas for full page
+      // Create canvas for full page (at device pixel resolution for sharpness)
       const canvas = document.createElement('canvas');
-      canvas.width = pageWidth;
-      canvas.height = pageHeight;
+      canvas.width = pageWidth * dpr;
+      canvas.height = pageHeight * dpr;
       const ctx = canvas.getContext('2d');
 
       // Fill with white background
@@ -257,8 +260,14 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
           showElements(footers);
           const img = await loadImage(dataUrl);
 
-          // Draw on canvas (only the portion we need)
-          ctx.drawImage(img, sourceX, sourceY, drawWidth, drawHeight, drawX, drawY, drawWidth, drawHeight);
+          // Draw on canvas (scale by DPR since captured image is in device pixels)
+          // Source coordinates are in device pixels (captured image resolution)
+          // Destination coordinates are in device pixels (canvas resolution)
+          ctx.drawImage(
+            img,
+            sourceX * dpr, sourceY * dpr, drawWidth * dpr, drawHeight * dpr,
+            drawX * dpr, drawY * dpr, drawWidth * dpr, drawHeight * dpr
+          );
 
           // Add delay to avoid Chrome's rate limit (max 2 captures per second)
           // Using 700ms to account for reflow delays and provide buffer
@@ -321,7 +330,10 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
       const originalScrollY = window.scrollY;
       const originalScrollX = window.scrollX;
 
-      // Get page dimensions
+      // Get device pixel ratio for high-DPI displays
+      const dpr = window.devicePixelRatio || 1;
+
+      // Get page dimensions (in CSS pixels)
       const pageHeight = Math.max(
         document.body.scrollHeight,
         document.body.offsetHeight,
@@ -340,10 +352,10 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
 
-      // Create canvas for full page
+      // Create canvas for full page (at device pixel resolution for sharpness)
       const canvas = document.createElement('canvas');
-      canvas.width = pageWidth;
-      canvas.height = pageHeight;
+      canvas.width = pageWidth * dpr;
+      canvas.height = pageHeight * dpr;
       const ctx = canvas.getContext('2d');
 
       // Fill with white background
@@ -452,8 +464,12 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
           showElements(footers);
           const img = await loadImage(dataUrl);
 
-          // Draw on canvas (only the portion we need)
-          ctx.drawImage(img, sourceX, sourceY, drawWidth, drawHeight, drawX, drawY, drawWidth, drawHeight);
+          // Draw on canvas (scale by DPR since captured image is in device pixels)
+          ctx.drawImage(
+            img,
+            sourceX * dpr, sourceY * dpr, drawWidth * dpr, drawHeight * dpr,
+            drawX * dpr, drawY * dpr, drawWidth * dpr, drawHeight * dpr
+          );
 
           // Add delay to avoid Chrome's rate limit (max 2 captures per second)
           // Using 700ms to account for reflow delays and provide buffer
