@@ -9,11 +9,79 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true; // Keep message channel open for async response
   } else if (request.action === 'captureFullPage') {
-    captureFullPage(request.format, request.hideStickyElements);
+    captureFullPage(request.format, request.hideStickyElements, request.showUrlHeader);
     sendResponse({ success: true });
     return true;
   }
 });
+
+// Detect the actual scrollable container (for SPAs like LinkedIn that use a scrollable div)
+function getScrollContainer() {
+  // If the document itself scrolls, use the default window scrolling
+  if (document.documentElement.scrollHeight > window.innerHeight + 1) {
+    return null;
+  }
+
+  // Scan for a scrollable container element
+  let best = null;
+  let bestScrollHeight = 0;
+
+  const elements = document.querySelectorAll('*');
+  for (const el of elements) {
+    const style = window.getComputedStyle(el);
+    const overflowY = style.overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      if (el.scrollHeight > el.clientHeight + 1) {
+        if (el.scrollHeight > bestScrollHeight) {
+          best = el;
+          bestScrollHeight = el.scrollHeight;
+        }
+      }
+    }
+  }
+
+  return best;
+}
+
+// Unified scroll interface that works with both window and container element scrolling
+function getScrollInfo(container) {
+  if (!container) {
+    return {
+      pageHeight: Math.max(
+        document.body.scrollHeight,
+        document.body.offsetHeight,
+        document.documentElement.clientHeight,
+        document.documentElement.scrollHeight,
+        document.documentElement.offsetHeight
+      ),
+      pageWidth: Math.max(
+        document.body.scrollWidth,
+        document.body.offsetWidth,
+        document.documentElement.clientWidth,
+        document.documentElement.scrollWidth,
+        document.documentElement.offsetWidth
+      ),
+      scrollTo(x, y) { window.scrollTo(x, y); },
+      getScrollX() { return window.scrollX; },
+      getScrollY() { return window.scrollY; },
+    };
+  }
+
+  return {
+    pageHeight: container.scrollHeight,
+    pageWidth: Math.max(
+      container.scrollWidth,
+      document.body.scrollWidth,
+      document.body.offsetWidth,
+      document.documentElement.clientWidth,
+      document.documentElement.scrollWidth,
+      document.documentElement.offsetWidth
+    ),
+    scrollTo(x, y) { container.scrollTo(x, y); },
+    getScrollX() { return container.scrollLeft; },
+    getScrollY() { return container.scrollTop; },
+  };
+}
 
 // Helper functions for detecting and managing sticky elements
 function getStickyElements() {
@@ -85,6 +153,64 @@ function showElements(elements) {
   }
 }
 
+// Draw URL header on canvas
+function drawUrlHeader(ctx, width, height, dpr) {
+  const url = window.location.href;
+
+  // Draw beige-to-white gradient background
+  const gradient = ctx.createLinearGradient(0, 0, 0, height * dpr);
+  gradient.addColorStop(0, '#f5f5dc'); // Beige
+  gradient.addColorStop(1, '#ffffff'); // White
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width * dpr, height * dpr);
+
+  // Draw bottom border
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 1 * dpr;
+  ctx.beginPath();
+  ctx.moveTo(0, height * dpr - 0.5 * dpr);
+  ctx.lineTo(width * dpr, height * dpr - 0.5 * dpr);
+  ctx.stroke();
+
+  // Set up text style
+  const fontSize = 14;
+  const padding = 16;
+  ctx.font = `${fontSize * dpr}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.fillStyle = '#333333'; // Dark text
+  ctx.textBaseline = 'middle';
+
+  // Calculate available width for text
+  const maxTextWidth = (width - padding * 2) * dpr;
+
+  // Truncate URL with "..." if too long
+  let displayUrl = url;
+  let textWidth = ctx.measureText(displayUrl).width;
+
+  if (textWidth > maxTextWidth) {
+    const ellipsis = '...';
+    const ellipsisWidth = ctx.measureText(ellipsis).width;
+
+    // Binary search for the right truncation point
+    let low = 0;
+    let high = displayUrl.length;
+
+    while (low < high) {
+      const mid = Math.floor((low + high + 1) / 2);
+      const truncated = displayUrl.substring(0, mid) + ellipsis;
+      if (ctx.measureText(truncated).width <= maxTextWidth) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    displayUrl = displayUrl.substring(0, low) + ellipsis;
+  }
+
+  // Draw the URL text
+  ctx.fillText(displayUrl, padding * dpr, (height / 2) * dpr);
+}
+
 // Capture current viewport only
 async function captureCurrentView(format, hideStickyElements = true) {
   try {
@@ -99,14 +225,14 @@ async function captureCurrentView(format, hideStickyElements = true) {
 }
 
 // Capture full page by scrolling
-async function captureFullPage(format, hideStickyElements = true) {
+async function captureFullPage(format, hideStickyElements = true, showUrlHeader = false) {
   // showCaptureProgress('Preparing to capture full page...');
 
   try {
     if (format === 'image') {
-      await captureAsImage(true, hideStickyElements);
+      await captureAsImage(true, hideStickyElements, showUrlHeader);
     } else if (format === 'pdf') {
-      await captureAsPDF(true, hideStickyElements);
+      await captureAsPDF(true, hideStickyElements, showUrlHeader);
     }
     // hideCaptureProgress();
   } catch (error) {
@@ -117,46 +243,47 @@ async function captureFullPage(format, hideStickyElements = true) {
 }
 
 // Capture as image (PNG)
-async function captureAsImage(fullPage = false, hideStickyElements = true) {
+async function captureAsImage(fullPage = false, hideStickyElements = true, showUrlHeader = false) {
   try {
     if (fullPage) {
       // showCaptureProgress('Capturing full page as image...');
 
+      // Detect scroll container (for SPAs like LinkedIn)
+      const scrollContainer = getScrollContainer();
+      const scrollInfo = getScrollInfo(scrollContainer);
+
       // Save original scroll position
-      const originalScrollY = window.scrollY;
-      const originalScrollX = window.scrollX;
+      const originalScrollY = scrollInfo.getScrollY();
+      const originalScrollX = scrollInfo.getScrollX();
 
       // Get device pixel ratio for high-DPI displays
       const dpr = window.devicePixelRatio || 1;
 
       // Get page dimensions (in CSS pixels)
-      const pageHeight = Math.max(
-        document.body.scrollHeight,
-        document.body.offsetHeight,
-        document.documentElement.clientHeight,
-        document.documentElement.scrollHeight,
-        document.documentElement.offsetHeight
-      );
-      const pageWidth = Math.max(
-        document.body.scrollWidth,
-        document.body.offsetWidth,
-        document.documentElement.clientWidth,
-        document.documentElement.scrollWidth,
-        document.documentElement.offsetWidth
-      );
+      const pageHeight = scrollInfo.pageHeight;
+      const pageWidth = scrollInfo.pageWidth;
 
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
 
+      // URL header dimensions (in CSS pixels)
+      const headerHeight = showUrlHeader ? 40 : 0;
+      const totalHeight = pageHeight + headerHeight;
+
       // Create canvas for full page (at device pixel resolution for sharpness)
       const canvas = document.createElement('canvas');
       canvas.width = pageWidth * dpr;
-      canvas.height = pageHeight * dpr;
+      canvas.height = totalHeight * dpr;
       const ctx = canvas.getContext('2d');
 
       // Fill with white background
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw URL header if enabled
+      if (showUrlHeader) {
+        drawUrlHeader(ctx, pageWidth, headerHeight, dpr);
+      }
 
       // Calculate number of screenshots needed
       const numVertical = Math.ceil(pageHeight / viewportHeight);
@@ -173,7 +300,7 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
 
       if (hideStickyElements) {
         // Scroll down first to activate sticky elements that only become sticky on scroll
-        window.scrollTo(0, viewportHeight);
+        scrollInfo.scrollTo(0, viewportHeight);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         stickyElements = getStickyElements();
@@ -183,7 +310,7 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
         others = categorized.others;
 
         // Scroll back to top before starting capture
-        window.scrollTo(0, 0);
+        scrollInfo.scrollTo(0, 0);
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
@@ -217,7 +344,7 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
             drawX = pageWidth - remainingWidth; // Draw at this position on canvas
           }
 
-          window.scrollTo(x, y);
+          scrollInfo.scrollTo(x, y);
           await new Promise(resolve => setTimeout(resolve, 100)); // Wait for render
 
           // Hide/show sticky elements based on position (only if enabled)
@@ -263,10 +390,11 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
           // Draw on canvas (scale by DPR since captured image is in device pixels)
           // Source coordinates are in device pixels (captured image resolution)
           // Destination coordinates are in device pixels (canvas resolution)
+          // Add headerHeight offset to Y position for screenshots
           ctx.drawImage(
             img,
             sourceX * dpr, sourceY * dpr, drawWidth * dpr, drawHeight * dpr,
-            drawX * dpr, drawY * dpr, drawWidth * dpr, drawHeight * dpr
+            drawX * dpr, (drawY + headerHeight) * dpr, drawWidth * dpr, drawHeight * dpr
           );
 
           // Add delay to avoid Chrome's rate limit (max 2 captures per second)
@@ -278,7 +406,7 @@ async function captureAsImage(fullPage = false, hideStickyElements = true) {
       }
 
       // Restore original scroll position
-      window.scrollTo(originalScrollX, originalScrollY);
+      scrollInfo.scrollTo(originalScrollX, originalScrollY);
 
       // Ensure all sticky elements are restored
       if (stickyElements && stickyElements.length > 0) {
@@ -321,46 +449,47 @@ async function captureViewport() {
 }
 
 // Capture as PDF - capture as image then convert to PDF
-async function captureAsPDF(fullPage = false, hideStickyElements = true) {
+async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrlHeader = false) {
   try {
     // showCaptureProgress('Capturing page for PDF...');
 
     if (fullPage) {
+      // Detect scroll container (for SPAs like LinkedIn)
+      const scrollContainer = getScrollContainer();
+      const scrollInfo = getScrollInfo(scrollContainer);
+
       // Save original scroll position
-      const originalScrollY = window.scrollY;
-      const originalScrollX = window.scrollX;
+      const originalScrollY = scrollInfo.getScrollY();
+      const originalScrollX = scrollInfo.getScrollX();
 
       // Get device pixel ratio for high-DPI displays
       const dpr = window.devicePixelRatio || 1;
 
       // Get page dimensions (in CSS pixels)
-      const pageHeight = Math.max(
-        document.body.scrollHeight,
-        document.body.offsetHeight,
-        document.documentElement.clientHeight,
-        document.documentElement.scrollHeight,
-        document.documentElement.offsetHeight
-      );
-      const pageWidth = Math.max(
-        document.body.scrollWidth,
-        document.body.offsetWidth,
-        document.documentElement.clientWidth,
-        document.documentElement.scrollWidth,
-        document.documentElement.offsetWidth
-      );
+      const pageHeight = scrollInfo.pageHeight;
+      const pageWidth = scrollInfo.pageWidth;
 
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
 
+      // URL header dimensions (in CSS pixels)
+      const headerHeight = showUrlHeader ? 40 : 0;
+      const totalHeight = pageHeight + headerHeight;
+
       // Create canvas for full page (at device pixel resolution for sharpness)
       const canvas = document.createElement('canvas');
       canvas.width = pageWidth * dpr;
-      canvas.height = pageHeight * dpr;
+      canvas.height = totalHeight * dpr;
       const ctx = canvas.getContext('2d');
 
       // Fill with white background
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw URL header if enabled
+      if (showUrlHeader) {
+        drawUrlHeader(ctx, pageWidth, headerHeight, dpr);
+      }
 
       // Calculate number of screenshots needed
       const numVertical = Math.ceil(pageHeight / viewportHeight);
@@ -377,7 +506,7 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
 
       if (hideStickyElements) {
         // Scroll down first to activate sticky elements that only become sticky on scroll
-        window.scrollTo(0, viewportHeight);
+        scrollInfo.scrollTo(0, viewportHeight);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         stickyElements = getStickyElements();
@@ -387,7 +516,7 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
         others = categorized.others;
 
         // Scroll back to top before starting capture
-        window.scrollTo(0, 0);
+        scrollInfo.scrollTo(0, 0);
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
@@ -421,7 +550,7 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
             drawX = pageWidth - remainingWidth; // Draw at this position on canvas
           }
 
-          window.scrollTo(x, y);
+          scrollInfo.scrollTo(x, y);
           await new Promise(resolve => setTimeout(resolve, 100));
 
           // Hide/show sticky elements based on position (only if enabled)
@@ -465,10 +594,11 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
           const img = await loadImage(dataUrl);
 
           // Draw on canvas (scale by DPR since captured image is in device pixels)
+          // Add headerHeight offset to Y position for screenshots
           ctx.drawImage(
             img,
             sourceX * dpr, sourceY * dpr, drawWidth * dpr, drawHeight * dpr,
-            drawX * dpr, drawY * dpr, drawWidth * dpr, drawHeight * dpr
+            drawX * dpr, (drawY + headerHeight) * dpr, drawWidth * dpr, drawHeight * dpr
           );
 
           // Add delay to avoid Chrome's rate limit (max 2 captures per second)
@@ -480,7 +610,7 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
       }
 
       // Restore original scroll position
-      window.scrollTo(originalScrollX, originalScrollY);
+      scrollInfo.scrollTo(originalScrollX, originalScrollY);
 
       // Ensure all sticky elements are restored
       if (stickyElements && stickyElements.length > 0) {
@@ -495,7 +625,7 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true) {
 
       // Calculate PDF dimensions (A4 proportions or page proportions)
       const pdfWidth = 210; // A4 width in mm
-      const pdfHeight = (pageHeight / pageWidth) * pdfWidth;
+      const pdfHeight = (totalHeight / pageWidth) * pdfWidth;
 
       // Create PDF with jsPDF
       if (!window.jsPDF) {

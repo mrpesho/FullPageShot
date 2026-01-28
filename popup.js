@@ -3,6 +3,7 @@ const captureImageBtn = document.getElementById('captureImage');
 const capturePDFBtn = document.getElementById('capturePDF');
 const statusDiv = document.getElementById('status');
 const hideStickyCheckbox = document.getElementById('hideStickyElements');
+const showUrlHeaderCheckbox = document.getElementById('showUrlHeader');
 
 // Show status message
 function showStatus(message, type = 'info') {
@@ -48,14 +49,16 @@ async function captureFullPage(format) {
     // Ensure content script is loaded
     await ensureContentScript(tab.id);
 
-    // Get the sticky elements preference
+    // Get preferences
     const hideStickyElements = hideStickyCheckbox.checked;
+    const showUrlHeader = showUrlHeaderCheckbox.checked;
 
     // Send message to content script to capture full page
     await chrome.tabs.sendMessage(tab.id, {
       action: 'captureFullPage',
       format: format,
-      hideStickyElements: hideStickyElements
+      hideStickyElements: hideStickyElements,
+      showUrlHeader: showUrlHeader
     });
 
     showStatus(`Capturing in progress...`, 'success');
@@ -83,8 +86,13 @@ hideStickyCheckbox.addEventListener('change', () => {
   chrome.storage.local.set({ hideStickyElements: hideStickyCheckbox.checked });
 });
 
+// Save URL header preference when changed
+showUrlHeaderCheckbox.addEventListener('change', () => {
+  chrome.storage.local.set({ showUrlHeader: showUrlHeaderCheckbox.checked });
+});
+
 // Load saved preferences
-chrome.storage.local.get(['lastFormat', 'hideStickyElements'], (result) => {
+chrome.storage.local.get(['lastFormat', 'hideStickyElements', 'showUrlHeader'], (result) => {
   // Set last format focus
   if (result.lastFormat === 'pdf') {
     capturePDFBtn.focus();
@@ -98,4 +106,12 @@ chrome.storage.local.get(['lastFormat', 'hideStickyElements'], (result) => {
   } else {
     hideStickyCheckbox.checked = true; // Default to hiding sticky elements
   }
+
+  // Set URL header checkbox (default to false if not set)
+  if (result.showUrlHeader !== undefined) {
+    showUrlHeaderCheckbox.checked = result.showUrlHeader;
+  } else {
+    showUrlHeaderCheckbox.checked = false; // Default to not showing URL header
+  }
+
 });

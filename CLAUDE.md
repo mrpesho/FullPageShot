@@ -92,6 +92,14 @@ ctx.drawImage(img,
 );
 ```
 
+### URL Header Feature
+When enabled, adds a header bar above the screenshot showing the page URL:
+1. **Height**: 40px (CSS pixels), scaled by `devicePixelRatio` for Retina
+2. **Background**: Linear gradient from beige (#f5f5dc) to white (#ffffff)
+3. **Text**: Dark (#333333), 14px system font
+4. **Truncation**: Long URLs truncated with "..." using binary search for optimal fit
+5. **Canvas offset**: All screenshot content drawn with Y offset of `headerHeight * dpr`
+
 ### Dynamic Script Injection
 When injecting content script dynamically, must include all files:
 ```javascript
@@ -118,6 +126,7 @@ await chrome.scripting.executeScript({
 `chrome.storage.local`:
 - `lastFormat`: "image" or "pdf"
 - `hideStickyElements`: boolean (default: true)
+- `showUrlHeader`: boolean (default: false)
 
 ## File Naming
 Format: `fullpageshot_[PAGE_TITLE]_[TIMESTAMP].[ext]`
@@ -173,7 +182,8 @@ try {
 - [ ] Long page captures completely (no duplicates at edges)
 - [ ] Scroll position restored after capture
 - [ ] Sticky toggle works (headers/footers hidden correctly)
-- [ ] Toggle state persists across sessions
+- [ ] URL header toggle adds page URL above screenshot (beige-to-white gradient, truncated with "...")
+- [ ] Toggle states persist across sessions
 - [ ] Test on both standard and high-DPI (Retina) displays
 
 ## Development Commands
