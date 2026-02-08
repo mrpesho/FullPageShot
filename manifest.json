@@ -7,7 +7,6 @@
     "activeTab",
     "contextMenus",
     "storage",
-    "downloads",
     "scripting"
   ],
   "host_permissions": [

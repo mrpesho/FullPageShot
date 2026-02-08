@@ -6,8 +6,9 @@ Chrome extension (Manifest V3) that captures full-page screenshots as PNG or PDF
 
 ### Core Components
 1. **manifest.json** - Extension config (Manifest V3)
-   - Permissions: `activeTab`, `contextMenus`, `storage`, `downloads`, `scripting`
+   - Permissions: `activeTab`, `contextMenus`, `storage`, `scripting`
    - Host permissions: `<all_urls>` (required for `captureVisibleTab` during scrolling)
+   - Note: `downloads` permission NOT needed — uses DOM `<a download>` approach
 
 2. **popup.html/css/js** - UI
    - "Save as Image" and "Save as PDF" buttons
@@ -68,6 +69,24 @@ Chrome limits `captureVisibleTab` to **2 calls per second**. Delays used:
 4. **CSS Override**: Use `setProperty('display', 'none', 'important')` to override `!important` rules
 5. **Restore**: Use `removeProperty('display')` to cleanly restore original CSS
 
+### SPA Scroll Container Detection
+Many SPAs (LinkedIn, Twitter, etc.) use a scrollable `div` instead of document body scrolling. The extension detects this:
+
+```javascript
+function getScrollContainer() {
+  // If document scrolls normally, use window
+  if (document.documentElement.scrollHeight > window.innerHeight + 1) {
+    return null;
+  }
+  // Otherwise, find the largest scrollable container
+  // Look for overflow-y: auto|scroll with scrollHeight > clientHeight
+}
+```
+
+`getScrollInfo(container)` provides a unified interface for both cases:
+- `pageHeight`, `pageWidth` — dimensions
+- `scrollTo(x, y)`, `getScrollX()`, `getScrollY()` — scroll operations
+
 ### Edge Capture Alignment
 When page height isn't a multiple of viewport height:
 ```javascript
@@ -121,6 +140,8 @@ await chrome.scripting.executeScript({
 | White/blank images | Not using screenshot API | Use `captureVisibleTab` via background script |
 | Duplicate content at edges | Not handling partial viewports | Use source rectangle extraction for last row/col |
 | Right side clipped on Retina/HiDPI | Not accounting for devicePixelRatio | Scale canvas and drawImage coords by `window.devicePixelRatio` |
+| Only first viewport on LinkedIn/SPAs | Site uses scrollable div, not body | Use `getScrollContainer()` to detect and scroll the correct element |
+| Context menu ignores user settings | background.js not reading all prefs | Ensure background.js reads ALL storage keys and passes to content script |
 
 ## Storage Keys
 `chrome.storage.local`:
@@ -185,6 +206,7 @@ try {
 - [ ] URL header toggle adds page URL above screenshot (beige-to-white gradient, truncated with "...")
 - [ ] Toggle states persist across sessions
 - [ ] Test on both standard and high-DPI (Retina) displays
+- [ ] Test on SPA sites (LinkedIn, Twitter) — should scroll and capture full content
 
 ## Development Commands
 ```bash

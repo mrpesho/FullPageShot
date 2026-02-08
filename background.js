@@ -56,15 +56,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       // Ensure content script is injected
       await ensureContentScript(tab.id);
 
-      // Get the sticky elements preference (default to true)
-      const result = await chrome.storage.local.get(['hideStickyElements']);
+      // Get preferences (default hideStickyElements to true, showUrlHeader to false)
+      const result = await chrome.storage.local.get(['hideStickyElements', 'showUrlHeader']);
       const hideStickyElements = result.hideStickyElements !== undefined ? result.hideStickyElements : true;
+      const showUrlHeader = result.showUrlHeader !== undefined ? result.showUrlHeader : false;
 
       // Send message to content script to start full-page capture
       await chrome.tabs.sendMessage(tab.id, {
         action: 'captureFullPage',
         format: format,
-        hideStickyElements: hideStickyElements
+        hideStickyElements: hideStickyElements,
+        showUrlHeader: showUrlHeader
       });
     } catch (error) {
       console.error('Error sending message to content script:', error);
@@ -121,18 +123,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     });
     return true;
-  } else if (request.action === 'downloadCapture') {
-    // Trigger download
-    chrome.downloads.download({
-      url: request.dataUrl,
-      filename: request.filename,
-      saveAs: true
-    }).then(() => {
-      sendResponse({ success: true });
-    }).catch(error => {
-      console.error('Download error:', error);
-      sendResponse({ success: false, error: error.message });
-    });
-    return true; // Keep the message channel open for async response
   }
 });
