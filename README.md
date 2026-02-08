@@ -72,4 +72,4 @@ All processing happens locally. No data is collected or sent anywhere.
 
 ## License
 
-MIT
+BSD-3-Clause
