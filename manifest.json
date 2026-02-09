@@ -1,16 +1,13 @@
 {
   "manifest_version": 3,
   "name": "FullPageShot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Capture full-page screenshots as images or PDFs with automatic scrolling",
   "permissions": [
     "activeTab",
     "contextMenus",
     "storage",
     "scripting"
-  ],
-  "host_permissions": [
-    "<all_urls>"
   ],
   "icons": {
     "16": "icons/icon16.png",
