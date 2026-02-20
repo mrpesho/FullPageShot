@@ -4,6 +4,9 @@ const capturePDFBtn = document.getElementById('capturePDF');
 const statusDiv = document.getElementById('status');
 const hideStickyCheckbox = document.getElementById('hideStickyElements');
 const showUrlHeaderCheckbox = document.getElementById('showUrlHeader');
+const limitCaptureCheckbox = document.getElementById('limitCapture');
+const maxCapturesInput = document.getElementById('maxCaptures');
+const maxCapturesRow = document.getElementById('maxCapturesRow');
 
 // Show status message
 function showStatus(message, type = 'info') {
@@ -52,13 +55,15 @@ async function captureFullPage(format) {
     // Get preferences
     const hideStickyElements = hideStickyCheckbox.checked;
     const showUrlHeader = showUrlHeaderCheckbox.checked;
+    const maxCaptures = limitCaptureCheckbox.checked ? parseInt(maxCapturesInput.value, 10) : 0;
 
     // Send message to content script to capture full page
     await chrome.tabs.sendMessage(tab.id, {
       action: 'captureFullPage',
       format: format,
       hideStickyElements: hideStickyElements,
-      showUrlHeader: showUrlHeader
+      showUrlHeader: showUrlHeader,
+      maxCaptures: maxCaptures
     });
 
     showStatus(`Capturing in progress...`, 'success');
@@ -91,8 +96,20 @@ showUrlHeaderCheckbox.addEventListener('change', () => {
   chrome.storage.local.set({ showUrlHeader: showUrlHeaderCheckbox.checked });
 });
 
+// Save limit capture preferences when changed
+limitCaptureCheckbox.addEventListener('change', () => {
+  chrome.storage.local.set({ limitCapture: limitCaptureCheckbox.checked });
+  maxCapturesRow.classList.toggle('hidden', !limitCaptureCheckbox.checked);
+});
+
+maxCapturesInput.addEventListener('change', () => {
+  const val = Math.max(1, Math.min(99, parseInt(maxCapturesInput.value, 10) || 3));
+  maxCapturesInput.value = val;
+  chrome.storage.local.set({ maxCaptures: val });
+});
+
 // Load saved preferences
-chrome.storage.local.get(['lastFormat', 'hideStickyElements', 'showUrlHeader'], (result) => {
+chrome.storage.local.get(['lastFormat', 'hideStickyElements', 'showUrlHeader', 'limitCapture', 'maxCaptures'], (result) => {
   // Set last format focus
   if (result.lastFormat === 'pdf') {
     capturePDFBtn.focus();
@@ -112,6 +129,21 @@ chrome.storage.local.get(['lastFormat', 'hideStickyElements', 'showUrlHeader'], 
     showUrlHeaderCheckbox.checked = result.showUrlHeader;
   } else {
     showUrlHeaderCheckbox.checked = false; // Default to not showing URL header
+  }
+
+  // Set limit capture checkbox (default to false if not set)
+  if (result.limitCapture !== undefined) {
+    limitCaptureCheckbox.checked = result.limitCapture;
+  } else {
+    limitCaptureCheckbox.checked = false;
+  }
+  maxCapturesRow.classList.toggle('hidden', !limitCaptureCheckbox.checked);
+
+  // Set max captures value (default to 3)
+  if (result.maxCaptures !== undefined) {
+    maxCapturesInput.value = result.maxCaptures;
+  } else {
+    maxCapturesInput.value = 3;
   }
 
 });

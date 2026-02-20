@@ -12,7 +12,8 @@ Chrome extension (Manifest V3) that captures full-page screenshots as PNG or PDF
 
 2. **popup.html/css/js** - UI
    - "Save as Image" and "Save as PDF" buttons
-   - Toggle for sticky element hiding (saved to `chrome.storage.local`)
+   - Toggles: sticky element hiding, URL header, limit capture length
+   - Limit capture: toggle + number input (max screens), for infinite-scroll pages
 
 3. **content.js** - Main capture logic (injected into pages)
    - Screenshot capture and canvas stitching
@@ -37,19 +38,25 @@ Content scripts cannot capture screenshots directly:
 3. Returns data URL to content script
 4. Content script draws on canvas and stitches images
 
+### Capture Length Limiting
+When enabled, caps the number of vertical viewport captures (e.g., 3 screens max). Useful for infinite-scroll pages that would otherwise produce extremely long screenshots.
+
+**Critical ordering**: Apply the limit BEFORE creating the canvas. On infinite-scroll pages, the full `scrollHeight` can be enormous. Creating an oversized canvas first can exceed Chrome's canvas size limit, causing the context to silently fail — even after resizing smaller.
+
 ### Full-Page Capture Strategy
 1. Calculate total page dimensions (`scrollHeight`, `scrollWidth`)
 2. Calculate number of viewport captures needed (rows × columns)
-3. Create canvas matching full page size
-4. Loop through page:
+3. Apply maxCaptures limit if enabled (before canvas creation)
+4. Create canvas matching (limited) page size
+5. Loop through page:
    - Scroll to position → Wait 100ms for render
    - Hide sticky elements if enabled → Wait 50ms for DOM reflow
    - Capture viewport via background script
    - Restore sticky elements
    - Draw captured image on canvas at correct position
    - Wait 700ms (rate limit buffer)
-5. Handle edge cases (last row/column partial captures)
-6. Restore original scroll position
+6. Handle edge cases (last row/column partial captures)
+7. Restore original scroll position
 
 ### Rate Limiting (Critical!)
 Chrome limits `captureVisibleTab` to **2 calls per second**. Delays used:
@@ -86,6 +93,8 @@ function getScrollContainer() {
 `getScrollInfo(container)` provides a unified interface for both cases:
 - `pageHeight`, `pageWidth` — dimensions
 - `scrollTo(x, y)`, `getScrollX()`, `getScrollY()` — scroll operations
+
+**Important**: `scrollTo` uses `behavior: 'instant'` to override sites with `scroll-behavior: smooth` in CSS. Without this, smooth scrolling causes the page to still be mid-animation when the capture fires, producing duplicate content.
 
 ### Edge Capture Alignment
 When page height isn't a multiple of viewport height:
@@ -142,12 +151,16 @@ await chrome.scripting.executeScript({
 | Right side clipped on Retina/HiDPI | Not accounting for devicePixelRatio | Scale canvas and drawImage coords by `window.devicePixelRatio` |
 | Only first viewport on LinkedIn/SPAs | Site uses scrollable div, not body | Use `getScrollContainer()` to detect and scroll the correct element |
 | Context menu ignores user settings | background.js not reading all prefs | Ensure background.js reads ALL storage keys and passes to content script |
+| Top of page captured twice | Site uses `scroll-behavior: smooth` | Use `behavior: 'instant'` in all `scrollTo()` calls |
+| URL header missing with limit enabled | Canvas created at full page size (too large), then resized | Apply maxCaptures limit BEFORE creating canvas |
 
 ## Storage Keys
 `chrome.storage.local`:
 - `lastFormat`: "image" or "pdf"
 - `hideStickyElements`: boolean (default: true)
 - `showUrlHeader`: boolean (default: false)
+- `limitCapture`: boolean (default: false)
+- `maxCaptures`: number (default: 3) — max viewport captures when limitCapture is true
 
 ## File Naming
 Format: `fullpageshot_[PAGE_TITLE]_[TIMESTAMP].[ext]`
@@ -204,9 +217,11 @@ try {
 - [ ] Scroll position restored after capture
 - [ ] Sticky toggle works (headers/footers hidden correctly)
 - [ ] URL header toggle adds page URL above screenshot (beige-to-white gradient, truncated with "...")
+- [ ] Limit capture toggle caps number of viewport captures (e.g., 3 screens max)
 - [ ] Toggle states persist across sessions
 - [ ] Test on both standard and high-DPI (Retina) displays
 - [ ] Test on SPA sites (LinkedIn, Twitter) — should scroll and capture full content
+- [ ] Test on sites with `scroll-behavior: smooth` (e.g., jobicy.com) — no duplicate content
 
 ## Development Commands
 ```bash
@@ -228,3 +243,34 @@ Content: F12 on page → Console
 - Chrome 88+ (Manifest V3)
 - Edge 88+ (Chromium-based)
 - Not compatible: Firefox, Safari
+
+## Chrome Web Store Publishing
+
+### MV3 "Remotely Hosted Code" Violations
+Chrome Web Store rejects extensions containing references to external scripts. The bundled `jspdf.min.js` (v2.5.1) required these modifications before publishing:
+
+**Removed from jspdf.min.js:**
+1. `//# sourceMappingURL=jspdf.umd.min.js.map` - Source map reference (scanner flags missing .map files)
+2. `https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.1.1/pdfobject.min.js` - CDN URL in the `pdfobjectnewwindow` output feature
+
+**Why these cause rejection:**
+- `sourceMappingURL` is a directive browsers interpret as "fetch this file"
+- The pdfobject CDN URL is actual remote code loading (for a feature this extension doesn't use)
+
+**Commands to fix:**
+```bash
+# Remove sourceMappingURL
+sed -i '' 's|//# sourceMappingURL=jspdf.umd.min.js.map||g' jspdf.min.js
+
+# Remove CDN URL
+sed -i '' 's|https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.1.1/pdfobject.min.js||g' jspdf.min.js
+```
+
+**Safe to keep:** Attribution URLs in license comments (github.com, myersdaily.org) are not flagged.
+
+**Extension only uses:** `pdf.save(filename)` - does not need `pdfobjectnewwindow` feature.
+
+### Session Status (Feb 2026)
+- Extension was rejected for "Including remotely hosted code in a Manifest V3 item"
+- Both violations fixed and committed in local jspdf.min.js
+- Ready to resubmit to Chrome Web Store

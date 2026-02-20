@@ -200,3 +200,37 @@ h1 {
   font-size: 11px;
   line-height: 1.4;
 }
+
+.max-captures-row {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  margin-left: 56px;
+  gap: 8px;
+}
+
+.max-captures-row.hidden {
+  display: none;
+}
+
+.max-captures-label {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.max-captures-input {
+  width: 52px;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-size: 13px;
+  text-align: center;
+}
+
+.max-captures-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.6);
+}

@@ -9,7 +9,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true; // Keep message channel open for async response
   } else if (request.action === 'captureFullPage') {
-    captureFullPage(request.format, request.hideStickyElements, request.showUrlHeader);
+    captureFullPage(request.format, request.hideStickyElements, request.showUrlHeader, request.maxCaptures);
     sendResponse({ success: true });
     return true;
   }
@@ -61,7 +61,7 @@ function getScrollInfo(container) {
         document.documentElement.scrollWidth,
         document.documentElement.offsetWidth
       ),
-      scrollTo(x, y) { window.scrollTo(x, y); },
+      scrollTo(x, y) { window.scrollTo({ left: x, top: y, behavior: 'instant' }); },
       getScrollX() { return window.scrollX; },
       getScrollY() { return window.scrollY; },
     };
@@ -77,7 +77,7 @@ function getScrollInfo(container) {
       document.documentElement.scrollWidth,
       document.documentElement.offsetWidth
     ),
-    scrollTo(x, y) { container.scrollTo(x, y); },
+    scrollTo(x, y) { container.scrollTo({ left: x, top: y, behavior: 'instant' }); },
     getScrollX() { return container.scrollLeft; },
     getScrollY() { return container.scrollTop; },
   };
@@ -225,14 +225,14 @@ async function captureCurrentView(format, hideStickyElements = true) {
 }
 
 // Capture full page by scrolling
-async function captureFullPage(format, hideStickyElements = true, showUrlHeader = false) {
+async function captureFullPage(format, hideStickyElements = true, showUrlHeader = false, maxCaptures = 0) {
   // showCaptureProgress('Preparing to capture full page...');
 
   try {
     if (format === 'image') {
-      await captureAsImage(true, hideStickyElements, showUrlHeader);
+      await captureAsImage(true, hideStickyElements, showUrlHeader, maxCaptures);
     } else if (format === 'pdf') {
-      await captureAsPDF(true, hideStickyElements, showUrlHeader);
+      await captureAsPDF(true, hideStickyElements, showUrlHeader, maxCaptures);
     }
     // hideCaptureProgress();
   } catch (error) {
@@ -243,7 +243,7 @@ async function captureFullPage(format, hideStickyElements = true, showUrlHeader 
 }
 
 // Capture as image (PNG)
-async function captureAsImage(fullPage = false, hideStickyElements = true, showUrlHeader = false) {
+async function captureAsImage(fullPage = false, hideStickyElements = true, showUrlHeader = false, maxCaptures = 0) {
   try {
     if (fullPage) {
       // showCaptureProgress('Capturing full page as image...');
@@ -260,11 +260,21 @@ async function captureAsImage(fullPage = false, hideStickyElements = true, showU
       const dpr = window.devicePixelRatio || 1;
 
       // Get page dimensions (in CSS pixels)
-      const pageHeight = scrollInfo.pageHeight;
+      let pageHeight = scrollInfo.pageHeight;
       const pageWidth = scrollInfo.pageWidth;
 
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
+
+      // Calculate number of screenshots needed
+      let numVertical = Math.ceil(pageHeight / viewportHeight);
+      const numHorizontal = Math.ceil(pageWidth / viewportWidth);
+
+      // Apply max captures limit before creating canvas (avoids oversized canvas)
+      if (maxCaptures > 0 && numVertical > maxCaptures) {
+        numVertical = maxCaptures;
+        pageHeight = numVertical * viewportHeight;
+      }
 
       // URL header dimensions (in CSS pixels)
       const headerHeight = showUrlHeader ? 40 : 0;
@@ -284,10 +294,6 @@ async function captureAsImage(fullPage = false, hideStickyElements = true, showU
       if (showUrlHeader) {
         drawUrlHeader(ctx, pageWidth, headerHeight, dpr);
       }
-
-      // Calculate number of screenshots needed
-      const numVertical = Math.ceil(pageHeight / viewportHeight);
-      const numHorizontal = Math.ceil(pageWidth / viewportWidth);
 
       let captureCount = 0;
       const totalCaptures = numVertical * numHorizontal;
@@ -449,7 +455,7 @@ async function captureViewport() {
 }
 
 // Capture as PDF - capture as image then convert to PDF
-async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrlHeader = false) {
+async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrlHeader = false, maxCaptures = 0) {
   try {
     // showCaptureProgress('Capturing page for PDF...');
 
@@ -466,11 +472,21 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrl
       const dpr = window.devicePixelRatio || 1;
 
       // Get page dimensions (in CSS pixels)
-      const pageHeight = scrollInfo.pageHeight;
+      let pageHeight = scrollInfo.pageHeight;
       const pageWidth = scrollInfo.pageWidth;
 
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
+
+      // Calculate number of screenshots needed
+      let numVertical = Math.ceil(pageHeight / viewportHeight);
+      const numHorizontal = Math.ceil(pageWidth / viewportWidth);
+
+      // Apply max captures limit before creating canvas (avoids oversized canvas)
+      if (maxCaptures > 0 && numVertical > maxCaptures) {
+        numVertical = maxCaptures;
+        pageHeight = numVertical * viewportHeight;
+      }
 
       // URL header dimensions (in CSS pixels)
       const headerHeight = showUrlHeader ? 40 : 0;
@@ -490,10 +506,6 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrl
       if (showUrlHeader) {
         drawUrlHeader(ctx, pageWidth, headerHeight, dpr);
       }
-
-      // Calculate number of screenshots needed
-      const numVertical = Math.ceil(pageHeight / viewportHeight);
-      const numHorizontal = Math.ceil(pageWidth / viewportWidth);
 
       let captureCount = 0;
       const totalCaptures = numVertical * numHorizontal;

@@ -56,17 +56,20 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       // Ensure content script is injected
       await ensureContentScript(tab.id);
 
-      // Get preferences (default hideStickyElements to true, showUrlHeader to false)
-      const result = await chrome.storage.local.get(['hideStickyElements', 'showUrlHeader']);
+      // Get preferences
+      const result = await chrome.storage.local.get(['hideStickyElements', 'showUrlHeader', 'limitCapture', 'maxCaptures']);
       const hideStickyElements = result.hideStickyElements !== undefined ? result.hideStickyElements : true;
       const showUrlHeader = result.showUrlHeader !== undefined ? result.showUrlHeader : false;
+      const limitCapture = result.limitCapture !== undefined ? result.limitCapture : false;
+      const maxCaptures = limitCapture ? (result.maxCaptures !== undefined ? result.maxCaptures : 3) : 0;
 
       // Send message to content script to start full-page capture
       await chrome.tabs.sendMessage(tab.id, {
         action: 'captureFullPage',
         format: format,
         hideStickyElements: hideStickyElements,
-        showUrlHeader: showUrlHeader
+        showUrlHeader: showUrlHeader,
+        maxCaptures: maxCaptures
       });
     } catch (error) {
       console.error('Error sending message to content script:', error);

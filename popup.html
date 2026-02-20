@@ -37,6 +37,17 @@
         <span class="toggle-label">Show URL header</span>
       </label>
       <p class="option-description">Add page URL above the screenshot</p>
+
+      <label class="toggle-option" style="margin-top: 12px;">
+        <input type="checkbox" id="limitCapture">
+        <span class="toggle-slider"></span>
+        <span class="toggle-label">Limit capture length</span>
+      </label>
+      <div id="maxCapturesRow" class="max-captures-row hidden">
+        <label for="maxCaptures" class="max-captures-label">Max screens:</label>
+        <input type="number" id="maxCaptures" class="max-captures-input" min="1" max="99" value="3">
+      </div>
+      <p class="option-description">Cap screenshots for infinite-scroll pages</p>
     </div>
 
     <div id="status" class="status hidden"></div>
