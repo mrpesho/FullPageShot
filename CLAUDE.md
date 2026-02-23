@@ -270,7 +270,9 @@ sed -i '' 's|https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.1.1/pdfobject.mi
 
 **Extension only uses:** `pdf.save(filename)` - does not need `pdfobjectnewwindow` feature.
 
-### Session Status (Feb 2026)
-- Extension was rejected for "Including remotely hosted code in a Manifest V3 item"
-- Both violations fixed and committed in local jspdf.min.js
-- Ready to resubmit to Chrome Web Store
+### Packaging for Chrome Web Store
+```bash
+# From the project root — excludes dev files (README, CLAUDE.md, store/, generate-icons.js)
+zip -r ../FullPageShot-v1.1.0.zip manifest.json background.js content.js popup.html popup.css popup.js jspdf.min.js jspdf-wrapper.js icons/ LICENSE
+```
+
