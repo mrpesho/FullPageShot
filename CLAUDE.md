@@ -274,6 +274,6 @@ sed -i '' 's|https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.1.1/pdfobject.mi
 ### Packaging for Chrome Web Store
 ```bash
 # From the project root — excludes dev files (README, CLAUDE.md, store/, generate-icons.js)
-zip -r ../FullPageShot-v1.1.0.zip manifest.json background.js content.js popup.html popup.css popup.js jspdf.min.js jspdf-wrapper.js icons/ LICENSE
+zip -r ../FullPageShot-v1.2.0.zip manifest.json background.js content.js popup.html popup.css popup.js jspdf.min.js jspdf-wrapper.js icons/ LICENSE
 ```
 

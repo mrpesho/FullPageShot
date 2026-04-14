@@ -35,6 +35,8 @@ Coming soon.
 
 - **Hide sticky menus** (on by default) — Removes fixed headers/footers from appearing multiple times in the capture
 - **Show URL header** — Adds a bar with the page URL above the screenshot
+- **Start from the top** (on by default) — When off, captures from your current scroll position instead of scrolling to the top first
+- **Limit capture length** — Cap the number of viewport captures (useful for infinite-scroll pages)
 
 ## Permissions
 
