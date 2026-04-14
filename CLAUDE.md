@@ -12,7 +12,7 @@ Chrome extension (Manifest V3) that captures full-page screenshots as PNG or PDF
 
 2. **popup.html/css/js** - UI
    - "Save as Image" and "Save as PDF" buttons
-   - Toggles: sticky element hiding, URL header, limit capture length
+   - Toggles: sticky element hiding, URL header, scroll to top, limit capture length
    - Limit capture: toggle + number input (max screens), for infinite-scroll pages
 
 3. **content.js** - Main capture logic (injected into pages)
@@ -159,6 +159,7 @@ await chrome.scripting.executeScript({
 - `lastFormat`: "image" or "pdf"
 - `hideStickyElements`: boolean (default: true)
 - `showUrlHeader`: boolean (default: false)
+- `scrollToTop`: boolean (default: true) — scroll to top before capturing
 - `limitCapture`: boolean (default: false)
 - `maxCaptures`: number (default: 3) — max viewport captures when limitCapture is true
 

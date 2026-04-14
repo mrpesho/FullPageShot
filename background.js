@@ -57,9 +57,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       await ensureContentScript(tab.id);
 
       // Get preferences
-      const result = await chrome.storage.local.get(['hideStickyElements', 'showUrlHeader', 'limitCapture', 'maxCaptures']);
+      const result = await chrome.storage.local.get(['hideStickyElements', 'showUrlHeader', 'scrollToTop', 'limitCapture', 'maxCaptures']);
       const hideStickyElements = result.hideStickyElements !== undefined ? result.hideStickyElements : true;
       const showUrlHeader = result.showUrlHeader !== undefined ? result.showUrlHeader : false;
+      const scrollToTop = result.scrollToTop !== undefined ? result.scrollToTop : true;
       const limitCapture = result.limitCapture !== undefined ? result.limitCapture : false;
       const maxCaptures = limitCapture ? (result.maxCaptures !== undefined ? result.maxCaptures : 3) : 0;
 
@@ -69,6 +70,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         format: format,
         hideStickyElements: hideStickyElements,
         showUrlHeader: showUrlHeader,
+        scrollToTop: scrollToTop,
         maxCaptures: maxCaptures
       });
     } catch (error) {

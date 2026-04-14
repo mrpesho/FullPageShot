@@ -4,6 +4,7 @@ const capturePDFBtn = document.getElementById('capturePDF');
 const statusDiv = document.getElementById('status');
 const hideStickyCheckbox = document.getElementById('hideStickyElements');
 const showUrlHeaderCheckbox = document.getElementById('showUrlHeader');
+const scrollToTopCheckbox = document.getElementById('scrollToTop');
 const limitCaptureCheckbox = document.getElementById('limitCapture');
 const maxCapturesInput = document.getElementById('maxCaptures');
 const maxCapturesRow = document.getElementById('maxCapturesRow');
@@ -55,6 +56,7 @@ async function captureFullPage(format) {
     // Get preferences
     const hideStickyElements = hideStickyCheckbox.checked;
     const showUrlHeader = showUrlHeaderCheckbox.checked;
+    const scrollToTop = scrollToTopCheckbox.checked;
     const maxCaptures = limitCaptureCheckbox.checked ? parseInt(maxCapturesInput.value, 10) : 0;
 
     // Send message to content script to capture full page
@@ -63,6 +65,7 @@ async function captureFullPage(format) {
       format: format,
       hideStickyElements: hideStickyElements,
       showUrlHeader: showUrlHeader,
+      scrollToTop: scrollToTop,
       maxCaptures: maxCaptures
     });
 
@@ -96,6 +99,11 @@ showUrlHeaderCheckbox.addEventListener('change', () => {
   chrome.storage.local.set({ showUrlHeader: showUrlHeaderCheckbox.checked });
 });
 
+// Save scroll to top preference when changed
+scrollToTopCheckbox.addEventListener('change', () => {
+  chrome.storage.local.set({ scrollToTop: scrollToTopCheckbox.checked });
+});
+
 // Save limit capture preferences when changed
 limitCaptureCheckbox.addEventListener('change', () => {
   chrome.storage.local.set({ limitCapture: limitCaptureCheckbox.checked });
@@ -109,7 +117,7 @@ maxCapturesInput.addEventListener('change', () => {
 });
 
 // Load saved preferences
-chrome.storage.local.get(['lastFormat', 'hideStickyElements', 'showUrlHeader', 'limitCapture', 'maxCaptures'], (result) => {
+chrome.storage.local.get(['lastFormat', 'hideStickyElements', 'showUrlHeader', 'scrollToTop', 'limitCapture', 'maxCaptures'], (result) => {
   // Set last format focus
   if (result.lastFormat === 'pdf') {
     capturePDFBtn.focus();
@@ -129,6 +137,13 @@ chrome.storage.local.get(['lastFormat', 'hideStickyElements', 'showUrlHeader', '
     showUrlHeaderCheckbox.checked = result.showUrlHeader;
   } else {
     showUrlHeaderCheckbox.checked = false; // Default to not showing URL header
+  }
+
+  // Set scroll to top checkbox (default to true if not set)
+  if (result.scrollToTop !== undefined) {
+    scrollToTopCheckbox.checked = result.scrollToTop;
+  } else {
+    scrollToTopCheckbox.checked = true;
   }
 
   // Set limit capture checkbox (default to false if not set)

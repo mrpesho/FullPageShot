@@ -9,7 +9,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true; // Keep message channel open for async response
   } else if (request.action === 'captureFullPage') {
-    captureFullPage(request.format, request.hideStickyElements, request.showUrlHeader, request.maxCaptures);
+    captureFullPage(request.format, request.hideStickyElements, request.showUrlHeader, request.maxCaptures, request.scrollToTop);
     sendResponse({ success: true });
     return true;
   }
@@ -225,14 +225,14 @@ async function captureCurrentView(format, hideStickyElements = true) {
 }
 
 // Capture full page by scrolling
-async function captureFullPage(format, hideStickyElements = true, showUrlHeader = false, maxCaptures = 0) {
+async function captureFullPage(format, hideStickyElements = true, showUrlHeader = false, maxCaptures = 0, scrollToTop = true) {
   // showCaptureProgress('Preparing to capture full page...');
 
   try {
     if (format === 'image') {
-      await captureAsImage(true, hideStickyElements, showUrlHeader, maxCaptures);
+      await captureAsImage(true, hideStickyElements, showUrlHeader, maxCaptures, scrollToTop);
     } else if (format === 'pdf') {
-      await captureAsPDF(true, hideStickyElements, showUrlHeader, maxCaptures);
+      await captureAsPDF(true, hideStickyElements, showUrlHeader, maxCaptures, scrollToTop);
     }
     // hideCaptureProgress();
   } catch (error) {
@@ -243,7 +243,7 @@ async function captureFullPage(format, hideStickyElements = true, showUrlHeader 
 }
 
 // Capture as image (PNG)
-async function captureAsImage(fullPage = false, hideStickyElements = true, showUrlHeader = false, maxCaptures = 0) {
+async function captureAsImage(fullPage = false, hideStickyElements = true, showUrlHeader = false, maxCaptures = 0, scrollToTop = true) {
   try {
     if (fullPage) {
       // showCaptureProgress('Capturing full page as image...');
@@ -260,25 +260,29 @@ async function captureAsImage(fullPage = false, hideStickyElements = true, showU
       const dpr = window.devicePixelRatio || 1;
 
       // Get page dimensions (in CSS pixels)
-      let pageHeight = scrollInfo.pageHeight;
+      const fullPageHeight = scrollInfo.pageHeight;
       const pageWidth = scrollInfo.pageWidth;
 
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
 
+      // Determine capture start position
+      const startY = scrollToTop ? 0 : originalScrollY;
+      let captureHeight = fullPageHeight - startY;
+
       // Calculate number of screenshots needed
-      let numVertical = Math.ceil(pageHeight / viewportHeight);
+      let numVertical = Math.ceil(captureHeight / viewportHeight);
       const numHorizontal = Math.ceil(pageWidth / viewportWidth);
 
       // Apply max captures limit before creating canvas (avoids oversized canvas)
       if (maxCaptures > 0 && numVertical > maxCaptures) {
         numVertical = maxCaptures;
-        pageHeight = numVertical * viewportHeight;
+        captureHeight = numVertical * viewportHeight;
       }
 
       // URL header dimensions (in CSS pixels)
       const headerHeight = showUrlHeader ? 40 : 0;
-      const totalHeight = pageHeight + headerHeight;
+      const totalHeight = captureHeight + headerHeight;
 
       // Create canvas for full page (at device pixel resolution for sharpness)
       const canvas = document.createElement('canvas');
@@ -306,7 +310,7 @@ async function captureAsImage(fullPage = false, hideStickyElements = true, showU
 
       if (hideStickyElements) {
         // Scroll down first to activate sticky elements that only become sticky on scroll
-        scrollInfo.scrollTo(0, viewportHeight);
+        scrollInfo.scrollTo(0, startY + viewportHeight);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         stickyElements = getStickyElements();
@@ -315,8 +319,8 @@ async function captureAsImage(fullPage = false, hideStickyElements = true, showU
         footers = categorized.footers;
         others = categorized.others;
 
-        // Scroll back to top before starting capture
-        scrollInfo.scrollTo(0, 0);
+        // Scroll back to start position before starting capture
+        scrollInfo.scrollTo(0, startY);
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
@@ -324,21 +328,21 @@ async function captureAsImage(fullPage = false, hideStickyElements = true, showU
       for (let row = 0; row < numVertical; row++) {
         for (let col = 0; col < numHorizontal; col++) {
           let x = col * viewportWidth;
-          let y = row * viewportHeight;
+          let y = startY + row * viewportHeight;
           let drawX = x;
-          let drawY = y;
+          let drawY = row * viewportHeight;
           let drawWidth = viewportWidth;
           let drawHeight = viewportHeight;
           let sourceX = 0;
           let sourceY = 0;
 
           // For the last row, adjust to capture only remaining content
-          if (row === numVertical - 1 && pageHeight % viewportHeight !== 0) {
-            const remainingHeight = pageHeight % viewportHeight;
-            y = pageHeight - viewportHeight; // Scroll so bottom aligns with viewport bottom
+          if (row === numVertical - 1 && captureHeight % viewportHeight !== 0) {
+            const remainingHeight = captureHeight % viewportHeight;
+            y = startY + captureHeight - viewportHeight; // Scroll so bottom aligns with viewport bottom
             sourceY = viewportHeight - remainingHeight; // Start copying from this Y position in the image
             drawHeight = remainingHeight; // Only draw the remaining height
-            drawY = pageHeight - remainingHeight; // Draw at this position on canvas
+            drawY = captureHeight - remainingHeight; // Draw at this position on canvas
           }
 
           // For the last column, adjust to capture only remaining content
@@ -455,7 +459,7 @@ async function captureViewport() {
 }
 
 // Capture as PDF - capture as image then convert to PDF
-async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrlHeader = false, maxCaptures = 0) {
+async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrlHeader = false, maxCaptures = 0, scrollToTop = true) {
   try {
     // showCaptureProgress('Capturing page for PDF...');
 
@@ -472,25 +476,29 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrl
       const dpr = window.devicePixelRatio || 1;
 
       // Get page dimensions (in CSS pixels)
-      let pageHeight = scrollInfo.pageHeight;
+      const fullPageHeight = scrollInfo.pageHeight;
       const pageWidth = scrollInfo.pageWidth;
 
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
 
+      // Determine capture start position
+      const startY = scrollToTop ? 0 : originalScrollY;
+      let captureHeight = fullPageHeight - startY;
+
       // Calculate number of screenshots needed
-      let numVertical = Math.ceil(pageHeight / viewportHeight);
+      let numVertical = Math.ceil(captureHeight / viewportHeight);
       const numHorizontal = Math.ceil(pageWidth / viewportWidth);
 
       // Apply max captures limit before creating canvas (avoids oversized canvas)
       if (maxCaptures > 0 && numVertical > maxCaptures) {
         numVertical = maxCaptures;
-        pageHeight = numVertical * viewportHeight;
+        captureHeight = numVertical * viewportHeight;
       }
 
       // URL header dimensions (in CSS pixels)
       const headerHeight = showUrlHeader ? 40 : 0;
-      const totalHeight = pageHeight + headerHeight;
+      const totalHeight = captureHeight + headerHeight;
 
       // Create canvas for full page (at device pixel resolution for sharpness)
       const canvas = document.createElement('canvas');
@@ -518,7 +526,7 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrl
 
       if (hideStickyElements) {
         // Scroll down first to activate sticky elements that only become sticky on scroll
-        scrollInfo.scrollTo(0, viewportHeight);
+        scrollInfo.scrollTo(0, startY + viewportHeight);
         await new Promise(resolve => setTimeout(resolve, 100));
 
         stickyElements = getStickyElements();
@@ -527,8 +535,8 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrl
         footers = categorized.footers;
         others = categorized.others;
 
-        // Scroll back to top before starting capture
-        scrollInfo.scrollTo(0, 0);
+        // Scroll back to start position before starting capture
+        scrollInfo.scrollTo(0, startY);
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
@@ -536,21 +544,21 @@ async function captureAsPDF(fullPage = false, hideStickyElements = true, showUrl
       for (let row = 0; row < numVertical; row++) {
         for (let col = 0; col < numHorizontal; col++) {
           let x = col * viewportWidth;
-          let y = row * viewportHeight;
+          let y = startY + row * viewportHeight;
           let drawX = x;
-          let drawY = y;
+          let drawY = row * viewportHeight;
           let drawWidth = viewportWidth;
           let drawHeight = viewportHeight;
           let sourceX = 0;
           let sourceY = 0;
 
           // For the last row, adjust to capture only remaining content
-          if (row === numVertical - 1 && pageHeight % viewportHeight !== 0) {
-            const remainingHeight = pageHeight % viewportHeight;
-            y = pageHeight - viewportHeight; // Scroll so bottom aligns with viewport bottom
+          if (row === numVertical - 1 && captureHeight % viewportHeight !== 0) {
+            const remainingHeight = captureHeight % viewportHeight;
+            y = startY + captureHeight - viewportHeight; // Scroll so bottom aligns with viewport bottom
             sourceY = viewportHeight - remainingHeight; // Start copying from this Y position in the image
             drawHeight = remainingHeight; // Only draw the remaining height
-            drawY = pageHeight - remainingHeight; // Draw at this position on canvas
+            drawY = captureHeight - remainingHeight; // Draw at this position on canvas
           }
 
           // For the last column, adjust to capture only remaining content
